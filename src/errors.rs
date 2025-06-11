@@ -2,6 +2,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use log4rs::config::runtime::ConfigErrors;
 use log::SetLoggerError;
+use crate::manager_db::errors::DBError;
 
 /// Error representing an unrecoverable error that will halt the application
 ///
@@ -22,6 +23,9 @@ impl From<ConfigError> for UnrecoverableError {
     fn from(e: ConfigError) -> Self {
         UnrecoverableError(e.to_string())
     }
+}
+impl From<DBError> for UnrecoverableError {
+    fn from(e: DBError) -> Self { UnrecoverableError(e.to_string()) }
 }
 
 /// Errors while managing configuration
