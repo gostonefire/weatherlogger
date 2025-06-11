@@ -54,8 +54,7 @@ impl DB {
     /// humidity (5%), there is a chance that no data would be returned even for a longer period of time.
     /// 
     /// To mitigate this, indeed there is a temperature, the last recorded temperature will be returned with
-    /// a time set to the given `from` parameter. This, of course, introduces a risk that we will return
-    /// data even if the sensor has stopped working.
+    /// a time set to the given `from` parameter if the resultset from db was empty.
     /// 
     /// # Arguments
     /// 
@@ -84,16 +83,15 @@ impl DB {
             result.push(DataItem { x, y });
         }
         
-        // Make sure that the given 'from' boundary always has data
-        if result.is_empty() || result[0].x != from_datetime {
+        // Make sure that we have at least one data point
+        if result.is_empty() {
             let mut stmt = self.db_conn.prepare(
                 "SELECT temperature 
                 FROM temp_hum
-                WHERE datetime < ?1
                 ORDER BY datetime DESC LIMIT 1;",
             )?;
             let x =  from_datetime;
-            let response: rusqlite::Result<f64> = stmt.query_one(params![from_timestamp], |row| row.get(0));
+            let response: rusqlite::Result<f64> = stmt.query_one([], |row| row.get(0));
             match response {
                 Ok(y) => result.insert(0, DataItem { x, y }),
                 Err(e) => {
