@@ -21,10 +21,21 @@ impl DB {
     pub fn new(db_path: &str) -> Result<Self, DBError> {
         let db_conn = Connection::open(db_path)?;
         db_conn.execute(
+           "CREATE TABLE IF NOT EXISTS weather (
+                source text not null,
+                datetime integer not null,
+                temperature real null,
+                humidity integer null,
+                constraint primary_key primary key (source, datetime)
+           )",
+           [],
+        )?;
+        db_conn.execute(
             "CREATE TABLE IF NOT EXISTS temp_hum (
                 datetime integer primary key,
                 temperature real null,
-                humidity integer null
+                humidity integer null,
+                source text null
          )",
             [],
         )?;
@@ -35,14 +46,15 @@ impl DB {
     /// Inserts a record in the database
     /// 
     /// # Arguments
-    /// 
+    ///
+    /// * 'source' - sensor id (source)    
     /// * 'temp' - temperature
     /// * 'humidity' - humidity
-    pub fn insert_record(&self, temp: f64, humidity: u8) -> Result<(), DBError> {
+    pub fn insert_record(&self, source: &str, temp: f64, humidity: u8) -> Result<(), DBError> {
         
         self.db_conn.execute(
-            "INSERT INTO temp_hum (datetime, temperature, humidity) values (?1, ?2, ?3)",
-            params![Utc::now().timestamp(), temp, humidity],
+            "INSERT INTO weather (source, datetime, temperature, humidity) values (?1, ?2, ?3, ?4)",
+            params![source, Utc::now().timestamp(), temp, humidity],
         )?;
         
         Ok(())
@@ -58,9 +70,10 @@ impl DB {
     /// 
     /// # Arguments
     /// 
+    /// * 'source' - sensor id (source)
     /// * 'from' - local datetime in the rfc3339 format
     /// * 'to' - local datetime in the rfc3339 format
-    pub fn get_temp_history(&self, from: &str, to: &str) -> Result<String, DBError> {
+    pub fn get_temp_history(&self, source: &str, from: &str, to: &str) -> Result<String, DBError> {
         let from_datetime = DateTime::parse_from_rfc3339(from)?.with_timezone(&Local);
         let from_timestamp = DateTime::parse_from_rfc3339(from)?.with_timezone(&Utc).timestamp();
         let to_timestamp = DateTime::parse_from_rfc3339(to)?.with_timezone(&Utc).timestamp();
@@ -70,11 +83,11 @@ impl DB {
         // Get what may naturally be between the given time boundary from the database
         let mut stmt = self.db_conn.prepare(
             "SELECT datetime, temperature 
-                FROM temp_hum
-                WHERE datetime BETWEEN ?1 AND ?2
+                FROM weather
+                WHERE source = ?1 AND datetime BETWEEN ?2 AND ?3
                 ORDER BY datetime;",
         )?;
-        let mut rows = stmt.query(params![from_timestamp, to_timestamp])?;
+        let mut rows = stmt.query(params![source, from_timestamp, to_timestamp])?;
 
         while let Some(row) = rows.next()? {
             let timestamp: i64 = row.get(0)?;
@@ -87,13 +100,14 @@ impl DB {
         if result.is_empty() {
             let mut stmt = self.db_conn.prepare(
                 "SELECT temperature 
-                FROM temp_hum
+                FROM weather
+                WHERE source = ?1
                 ORDER BY datetime DESC LIMIT 1;",
             )?;
             let x =  from_datetime;
-            let response: rusqlite::Result<f64> = stmt.query_one([], |row| row.get(0));
+            let response: rusqlite::Result<f64> = stmt.query_one(params![source], |row| row.get(0));
             match response {
-                Ok(y) => result.insert(0, DataItem { x, y }),
+                Ok(y) => result.push(DataItem { x, y }),
                 Err(e) => {
                     if e != rusqlite::Error::QueryReturnedNoRows {
                         return Err(DBError::from(e));

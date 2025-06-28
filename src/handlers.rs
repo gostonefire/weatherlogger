@@ -7,10 +7,12 @@ use crate::AppState;
 struct SensorData {
     hum: u8,
     temp: f64,
+    id: String,
 }
 
 #[derive(Deserialize, Debug)]
 struct QueryParams {
+    id: String,
     from: String,
     to: String,
 }
@@ -21,7 +23,7 @@ async fn log_data(params: web::Query<SensorData>, data: web::Data<AppState>) -> 
 
     let db = data.db.lock().await;
 
-    match db.insert_record(params.temp, params.hum) {
+    match db.insert_record(&params.id, params.temp, params.hum) {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(e) => {
             error!("Failed to insert record: {}", e);
@@ -36,7 +38,7 @@ async fn temperature(params: web::Query<QueryParams>, data: web::Data<AppState>)
 
     let db = data.db.lock().await;
 
-    match db.get_temp_history(&params.from, &params.to) {
+    match db.get_temp_history(&params.id, &params.from, &params.to) {
         Ok(json) => HttpResponse::Ok().body(json),
         Err(e) => {
             error!("failed to get temp history: {}", e);
