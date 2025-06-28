@@ -1,13 +1,16 @@
 pub mod errors;
 mod models;
 
-use chrono::{DateTime, Local, Utc};
+use std::ops::Add;
+use chrono::{DateTime, Local, TimeDelta, Utc};
+use log::error;
 use rusqlite::{params, Connection};
 use crate::manager_db::errors::DBError;
 use crate::manager_db::models::DataItem;
 
 pub struct DB {
     db_conn: Connection,
+    max_age_in_days: i64,
     
 }
 
@@ -18,7 +21,8 @@ impl DB {
     /// # Arguments
     /// 
     /// * 'db_path' - full path to db file
-    pub fn new(db_path: &str) -> Result<Self, DBError> {
+    /// * 'max_age_in_days' - the limit to truncate table on
+    pub fn new(db_path: &str, max_age_in_days: i64) -> Result<Self, DBError> {
         let db_conn = Connection::open(db_path)?;
         db_conn.execute(
            "CREATE TABLE IF NOT EXISTS weather (
@@ -31,7 +35,7 @@ impl DB {
            [],
         )?;
         
-        Ok(DB { db_conn })
+        Ok(DB { db_conn, max_age_in_days })
     }
     
     /// Inserts a record in the database
@@ -108,5 +112,22 @@ impl DB {
         }
         
         Ok(serde_json::to_string_pretty(&result)?)
+    }
+    
+    /// Truncate weather table according max age
+    /// 
+    pub fn truncate_table(&self) {
+        match self.db_conn.prepare(
+            "DELETE FROM weather
+                WHERE datetime < ?1;"
+        ) {
+            Ok(mut stmt) => { 
+                let trunc_time = Local::now().add(TimeDelta::days(-1 * self.max_age_in_days)).with_timezone(&Utc).timestamp();
+                if let Err(e) = stmt.query(params![trunc_time]) {
+                    error!("error while deleting rows: {}", e);
+                }
+            },
+            Err(e) => { error!("error while preparing delete statement: {}", e); }
+        }
     }
 }

@@ -12,6 +12,7 @@ pub struct WebServerParameters {
 #[derive(Deserialize, Clone)]
 pub struct DB {
     pub db_path: String,
+    pub max_age_in_days: i64,
 }
 
 #[derive(Deserialize, Clone)]

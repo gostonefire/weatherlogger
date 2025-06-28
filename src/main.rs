@@ -20,8 +20,18 @@ struct AppState {
 #[actix_web::main]
 async fn main() -> Result<(), UnrecoverableError> {
     let config = config()?;
-    let db: Arc<Mutex<DB>> = Arc::new(Mutex::new(DB::new(&config.db.db_path)?));
+    let db: Arc<Mutex<DB>> = Arc::new(Mutex::new(DB::new(&config.db.db_path, config.db.max_age_in_days)?));
 
+    let trunc = db.clone();
+    tokio::spawn(async move {
+        loop {
+            {
+                trunc.lock().await.truncate_table();
+            }
+            tokio::time::sleep(tokio::time::Duration::from_secs(86400)).await;
+        }
+    });
+    
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(AppState {db: db.clone()}))
