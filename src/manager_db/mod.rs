@@ -30,15 +30,6 @@ impl DB {
            )",
            [],
         )?;
-        db_conn.execute(
-            "CREATE TABLE IF NOT EXISTS temp_hum (
-                datetime integer primary key,
-                temperature real null,
-                humidity integer null,
-                source text null
-         )",
-            [],
-        )?;
         
         Ok(DB { db_conn })
     }
