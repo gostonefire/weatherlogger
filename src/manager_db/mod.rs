@@ -122,8 +122,8 @@ impl DB {
     pub fn get_two_day_min_max(&self, source: &str) -> Result<String, DBError> {
         let today_start = Local::now().duration_trunc(TimeDelta::days(1)).unwrap();
         let today_end = today_start.add(TimeDelta::seconds(86399));
-        let yesterday_start = today_start.add(TimeDelta::days(1));
-        let yesterday_end = today_end.add(TimeDelta::days(1));
+        let yesterday_start = today_start.add(TimeDelta::days(-1));
+        let yesterday_end = today_end.add(TimeDelta::days(-1));
 
         // Get min/max
         let mut stmt = self.db_conn.prepare(
