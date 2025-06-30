@@ -8,7 +8,7 @@ use std::sync::Arc;
 use actix_web::{web, App, HttpServer};
 use tokio::sync::Mutex;
 use crate::errors::UnrecoverableError;
-use crate::handlers::{log_data, temperature};
+use crate::handlers::{log_data, min_max, temperature};
 use crate::initialization::config;
 use crate::manager_db::DB;
 
@@ -37,6 +37,7 @@ async fn main() -> Result<(), UnrecoverableError> {
             .app_data(web::Data::new(AppState {db: db.clone()}))
             .service(log_data)
             .service(temperature)
+            .service(min_max)
     })
         .bind((config.web_server.bind_address, config.web_server.bind_port))?
         .run()

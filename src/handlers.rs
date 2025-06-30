@@ -11,10 +11,15 @@ struct SensorData {
 }
 
 #[derive(Deserialize, Debug)]
-struct QueryParams {
+struct TempParams {
     id: String,
     from: String,
     to: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct MinMaxParams {
+    id: String,
 }
 
 #[get("/log")]
@@ -33,8 +38,8 @@ async fn log_data(params: web::Query<SensorData>, data: web::Data<AppState>) -> 
 }
 
 #[get("/temperature")]
-async fn temperature(params: web::Query<QueryParams>, data: web::Data<AppState>) -> impl Responder {
-    info!("{:?}", params);
+async fn temperature(params: web::Query<TempParams>, data: web::Data<AppState>) -> impl Responder {
+    info!("temperature: {:?}", params);
 
     let db = data.db.lock().await;
 
@@ -42,6 +47,21 @@ async fn temperature(params: web::Query<QueryParams>, data: web::Data<AppState>)
         Ok(json) => HttpResponse::Ok().body(json),
         Err(e) => {
             error!("failed to get temp history: {}", e);
+            HttpResponse::InternalServerError().finish()
+        }
+    }
+}
+
+#[get("/minmax")]
+async fn min_max(params: web::Query<MinMaxParams>, data: web::Data<AppState>) -> impl Responder {
+    info!("minmax: {:?}", params);
+
+    let db = data.db.lock().await;
+
+    match db.get_two_day_min_max(&params.id) {
+        Ok(json) => HttpResponse::Ok().body(json),
+        Err(e) => {
+            error!("failed to get min/max: {}", e);
             HttpResponse::InternalServerError().finish()
         }
     }

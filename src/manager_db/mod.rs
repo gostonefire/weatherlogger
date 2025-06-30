@@ -2,11 +2,11 @@ pub mod errors;
 mod models;
 
 use std::ops::Add;
-use chrono::{DateTime, Local, TimeDelta, Utc};
+use chrono::{DateTime, DurationRound, Local, TimeDelta, Utc};
 use log::error;
 use rusqlite::{params, Connection};
 use crate::manager_db::errors::DBError;
-use crate::manager_db::models::DataItem;
+use crate::manager_db::models::{DataItem, TwoDaysMinMax};
 
 pub struct DB {
     db_conn: Connection,
@@ -111,6 +111,51 @@ impl DB {
             }
         }
         
+        Ok(serde_json::to_string_pretty(&result)?)
+    }
+    
+    /// Returns a json string with two days min/max temperature values
+    ///
+    /// # Arguments
+    ///
+    /// * 'source' - sensor id (source)
+    pub fn get_two_day_min_max(&self, source: &str) -> Result<String, DBError> {
+        let today_start = Local::now().duration_trunc(TimeDelta::days(1)).unwrap();
+        let today_end = today_start.add(TimeDelta::seconds(86399));
+        let yesterday_start = today_start.add(TimeDelta::days(1));
+        let yesterday_end = today_end.add(TimeDelta::days(1));
+
+        // Get min/max
+        let mut stmt = self.db_conn.prepare(
+            "SELECT MIN(temperature), MAX(temperature) 
+                FROM weather
+                WHERE source = ?1 AND datetime BETWEEN ?2 AND ?3;",
+        )?;
+        
+
+        let mut result = TwoDaysMinMax {
+            yesterday_min: 0.0,
+            yesterday_max: 0.0,
+            today_min: 0.0,
+            today_max: 0.0,
+        };
+
+        {
+            let rows = &mut stmt.query(params![source, yesterday_start.timestamp(), yesterday_end.timestamp()])?;
+            if let Some(row) = rows.next()? {
+                result.yesterday_min = row.get(0).unwrap_or(0.0);
+                result.yesterday_max = row.get(1).unwrap_or(0.0);
+            }
+        }
+
+        {
+            let rows = &mut stmt.query(params![source, today_start.timestamp(), today_end.timestamp()])?;
+            if let Some(row) = rows.next()? {
+                result.today_min = row.get(0).unwrap_or(0.0);
+                result.today_max = row.get(1).unwrap_or(0.0);
+            }
+        }
+
         Ok(serde_json::to_string_pretty(&result)?)
     }
     
