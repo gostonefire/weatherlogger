@@ -10,8 +10,9 @@ use crate::errors::ConfigError;
 /// # Arguments
 ///
 /// * 'log_path' - path where to save logs
+/// * 'log_level' - log level
 /// * 'log_to_stdout' - whether to log to stdout or not
-pub fn setup_logger(log_path: &str, log_to_stdout: bool) -> Result<(), ConfigError> {
+pub fn setup_logger(log_path: &str, log_level: LevelFilter, log_to_stdout: bool) -> Result<(), ConfigError> {
     let stdout = ConsoleAppender::builder()
         .encoder(Box::new(PatternEncoder::new("[{d(%Y-%m-%dT%H:%M:%S):0<19}{d(%:z)} {l} {M}] - {m}{n}")))
         .build();
@@ -33,7 +34,7 @@ pub fn setup_logger(log_path: &str, log_to_stdout: bool) -> Result<(), ConfigErr
 
     let config = builder
         .build(Root::builder()
-            .appenders(appenders).build(LevelFilter::Info)
+            .appenders(appenders).build(log_level)
         )?;
 
     let _ = log4rs::init_config(config)?;

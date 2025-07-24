@@ -1,4 +1,5 @@
 use std::{env, fs};
+use log::LevelFilter;
 use serde::Deserialize;
 use crate::errors::ConfigError;
 use crate::logging::setup_logger;
@@ -18,6 +19,7 @@ pub struct DB {
 #[derive(Deserialize, Clone)]
 pub struct General {
     pub log_path: String,
+    pub log_level: LevelFilter,
     pub log_to_stdout: bool,
 }
 
@@ -42,7 +44,7 @@ pub fn config() -> Result<Config, ConfigError> {
 
     let config = load_config(&config_path)?;
 
-    setup_logger(&config.general.log_path, config.general.log_to_stdout)?;
+    setup_logger(&config.general.log_path, config.general.log_level, config.general.log_to_stdout)?;
 
     Ok(config)
 }
