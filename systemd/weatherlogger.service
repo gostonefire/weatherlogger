@@ -1,0 +1,16 @@
+[Unit]
+Description=Weatherlogger for Mygrid Dash
+After=network-online.target
+
+[Service]
+ExecStart=/bin/bash /home/petste/MyWeatherLogger/start.sh
+WorkingDirectory=/home/petste/MyWeatherLogger/
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+RestartSec=30
+User=petste
+
+[Install]
+WantedBy=multi-user.target
+
