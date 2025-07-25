@@ -11,6 +11,12 @@ pub struct WebServerParameters {
 }
 
 #[derive(Deserialize, Clone)]
+pub struct Temperature {
+    pub sensor: Vec<String>,
+    pub name: String,
+}
+
+#[derive(Deserialize, Clone)]
 pub struct DB {
     pub db_path: String,
     pub max_age_in_days: i64,
@@ -26,6 +32,7 @@ pub struct General {
 #[derive(Deserialize, Clone)]
 pub struct Config {
     pub web_server: WebServerParameters,
+    pub temperature: Temperature,
     pub db: DB,
     pub general: General,
 }

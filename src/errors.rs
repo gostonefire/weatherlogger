@@ -14,10 +14,10 @@ impl fmt::Display for UnrecoverableError {
     }
 }
 impl From<rusqlite::Error> for UnrecoverableError {
-    fn from(err: rusqlite::Error) -> Self { UnrecoverableError(err.to_string()) }
+    fn from(e: rusqlite::Error) -> Self { UnrecoverableError(e.to_string()) }
 }
 impl From<std::io::Error> for UnrecoverableError {
-    fn from(err: std::io::Error) -> Self { UnrecoverableError(err.to_string()) }
+    fn from(e: std::io::Error) -> Self { UnrecoverableError(e.to_string()) }
 }
 impl From<ConfigError> for UnrecoverableError {
     fn from(e: ConfigError) -> Self {
@@ -38,7 +38,7 @@ impl fmt::Display for ConfigError {
     }
 }
 impl From<std::io::Error> for ConfigError {
-    fn from(err: std::io::Error) -> Self { ConfigError(err.to_string()) }
+    fn from(e: std::io::Error) -> Self { ConfigError(e.to_string()) }
 }
 impl From<SetLoggerError> for ConfigError {
     fn from(e: SetLoggerError) -> Self {
@@ -57,4 +57,15 @@ impl From<toml::de::Error> for ConfigError {
     fn from(e: toml::de::Error) -> Self {
         ConfigError(e.to_string())
     }
+}
+
+pub struct TempError(pub String);
+impl fmt::Display for TempError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result { write!(f, "TempError: {}", self.0) }
+}
+impl From<reqwest::Error> for TempError {
+    fn from(e: reqwest::Error) -> Self { TempError(e.to_string()) }
+}
+impl From<serde_json::Error> for TempError {
+    fn from(e: serde_json::Error) -> Self { TempError(e.to_string()) }
 }
