@@ -3,7 +3,6 @@ use log::{error, info};
 use serde::Deserialize;
 use tokio::sync::Mutex;
 use tokio::task::JoinSet;
-use tokio::time::Instant;
 use crate::errors::TempError;
 use crate::manager_db::DB;
 
@@ -21,7 +20,6 @@ struct Data {
 /// * 'name' - the name of the sensor
 pub async fn run(db: Arc<Mutex<DB>>, sensor: &Vec<String>, name: &str) {
     let mut last_inserted: f64 = 0.0;
-    let mut last_time: Instant = Instant::now();
 
     loop {
         let mut set: JoinSet<Result<f64, TempError>> = JoinSet::new();
@@ -44,12 +42,11 @@ pub async fn run(db: Arc<Mutex<DB>>, sensor: &Vec<String>, name: &str) {
         }
 
         if let Some(t) = temperature {
-            if t != last_inserted || last_time.elapsed().as_secs() >= 300 {
+            if t != last_inserted {
                 if let Err(e) = db.lock().await.insert_record(name, t, 0) {
                     error!("error while inserting data in database: {}", e);
                 }
                 last_inserted = t;
-                last_time = Instant::now();
 
                 info!("inserted {} in database", t);
             }
