@@ -17,6 +17,13 @@ pub struct Temperature {
 }
 
 #[derive(Deserialize, Clone)]
+pub struct WeatherForecast {
+    pub name: String,
+    pub lat: f64,
+    pub long: f64,
+}
+
+#[derive(Deserialize, Clone)]
 pub struct DB {
     pub db_path: String,
     pub max_age_in_days: i64,
@@ -33,6 +40,7 @@ pub struct General {
 pub struct Config {
     pub web_server: WebServerParameters,
     pub temperature: Temperature,
+    pub weather_forecast: WeatherForecast,
     pub db: DB,
     pub general: General,
 }

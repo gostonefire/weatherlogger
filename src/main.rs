@@ -4,6 +4,8 @@ mod initialization;
 mod manager_db;
 mod handlers;
 mod manager_temperature;
+mod manager_smhi;
+mod manager_forecast;
 
 use std::sync::Arc;
 use actix_web::{web, App, HttpServer};
@@ -12,7 +14,8 @@ use crate::errors::UnrecoverableError;
 use crate::handlers::{log_data, min_max, temperature};
 use crate::initialization::config;
 use crate::manager_db::DB;
-use crate::manager_temperature::run;
+use crate::manager_forecast::run_forecasts;
+use crate::manager_temperature::run_observations;
 
 struct AppState {
     db: Arc<Mutex<DB>>,
@@ -36,9 +39,14 @@ async fn main() -> Result<(), UnrecoverableError> {
 
     let c2_db = db.clone();
     tokio::spawn(async move {
-        run(c2_db, &config.temperature.sensor, &config.temperature.name).await;
+        run_observations(c2_db, &config.temperature.sensor, &config.temperature.name).await;
     });
-    
+
+    let c3_db = db.clone();
+    tokio::spawn(async move {
+        run_forecasts(c3_db, config.weather_forecast.lat, config.weather_forecast.long, &config.weather_forecast.name).await;
+    });
+
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(AppState {db: db.clone()}))

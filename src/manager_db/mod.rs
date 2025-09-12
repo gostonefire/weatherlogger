@@ -30,6 +30,10 @@ impl DB {
                 datetime integer not null,
                 temperature real null,
                 humidity integer null,
+                wind_speed real null,
+                lcc_mean integer null,
+                mcc_mean integer null,
+                hcc_mean integer null,
                 constraint primary_key primary key (source, datetime)
            )",
            [],
@@ -38,23 +42,64 @@ impl DB {
         Ok(DB { db_conn, max_age_in_days })
     }
     
-    /// Inserts a record in the database
+    /// Inserts an observation record in the database
     /// 
     /// # Arguments
     ///
     /// * 'source' - sensor id (source)    
     /// * 'temp' - temperature
     /// * 'humidity' - humidity
-    pub fn insert_record(&self, source: &str, temp: f64, humidity: u8) -> Result<(), DBError> {
+    pub fn insert_observation_record(
+        &self,
+        source: &str,
+        temp: f64,
+        humidity: Option<u8>,
+    ) -> Result<(), DBError> {
         
         self.db_conn.execute(
-            "INSERT INTO weather (source, datetime, temperature, humidity) values (?1, ?2, ?3, ?4)",
+            "INSERT INTO weather (source, datetime, temperature, humidity) VALUES (?1, ?2, ?3, ?4)",
             params![source, Utc::now().timestamp(), temp, humidity],
         )?;
         
         Ok(())
     }
-    
+
+    /// Inserts (or updates) a forecast record in the database.
+    /// The main difference is that these records often tend to update existing records
+    /// when newer forecasts replace older ones.
+    ///
+    /// # Arguments
+    ///
+    /// * 'source' - sensor id (source)
+    /// * 'date_time' - forecast date and time in UTC
+    /// * 'temp' - temperature
+    /// * 'wind_speed' - wind speed
+    /// * 'humidity' - humidity
+    /// * 'lcc_mean' - low level cloud index
+    /// * 'mcc_mean' - medium level cloud index
+    /// * 'hcc_mean' - high level cloud index
+    pub fn insert_forecast_record(
+        &self,
+        source: &str,
+        date_time: DateTime<Utc>,
+        temp: f64,
+        wind_speed: Option<f64>,
+        humidity: Option<u8>,
+        lcc_mean: Option<u8>,
+        mcc_mean: Option<u8>,
+        hcc_mean: Option<u8>,
+    ) -> Result<(), DBError> {
+
+        self.db_conn.execute(
+            "INSERT INTO weather (source, datetime, temperature, humidity, wind_speed, lcc_mean, mcc_mean, hcc_mean)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                    ON CONFLICT (source, datetime) DO UPDATE SET temperature = ?3, humidity = ?4, wind_speed = ?5, lcc_mean = ?6, mcc_mean = ?7, hcc_mean = ?8",
+            params![source, date_time.timestamp(), temp, humidity, wind_speed, lcc_mean, mcc_mean, hcc_mean],
+        )?;
+
+        Ok(())
+    }
+
     /// Returns a json string with whatever temperatures are recorded between given boundaries
     /// 
     /// Since the sensor only records data when there is a change in either temperature (1 degree Celsius) or

@@ -18,7 +18,7 @@ struct Data {
 /// * 'db' - database to store readings into
 /// * 'sensor' - a vector of sensors to read
 /// * 'name' - the name of the sensor
-pub async fn run(db: Arc<Mutex<DB>>, sensor: &Vec<String>, name: &str) {
+pub async fn run_observations(db: Arc<Mutex<DB>>, sensor: &Vec<String>, name: &str) {
     let mut last_inserted: f64 = 0.0;
 
     loop {
@@ -43,7 +43,7 @@ pub async fn run(db: Arc<Mutex<DB>>, sensor: &Vec<String>, name: &str) {
 
         if let Some(t) = temperature {
             if t != last_inserted {
-                if let Err(e) = db.lock().await.insert_record(name, t, 0) {
+                if let Err(e) = db.lock().await.insert_observation_record(name, t, None) {
                     error!("error while inserting data in database: {}", e);
                 }
                 last_inserted = t;
