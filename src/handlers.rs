@@ -66,3 +66,18 @@ async fn min_max(params: web::Query<MinMaxParams>, data: web::Data<AppState>) ->
         }
     }
 }
+
+#[get("/forecast")]
+async fn forecast(params: web::Query<TempParams>, data: web::Data<AppState>) -> impl Responder {
+    info!("forecast: {:?}", params);
+    
+    let db = data.db.lock().await;
+    
+    match db.get_forecast(&params.id, &params.from, &params.to) {
+        Ok(json) => HttpResponse::Ok().body(json),
+        Err(e) => {
+            error!("failed to get forecast: {}", e);
+            HttpResponse::InternalServerError().finish()
+        }
+    }
+}

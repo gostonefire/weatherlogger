@@ -6,7 +6,7 @@ use chrono::{DateTime, DurationRound, Local, TimeDelta, Utc};
 use log::error;
 use rusqlite::{params, Connection};
 use crate::manager_db::errors::DBError;
-use crate::manager_db::models::{DataItem, TwoDaysMinMax};
+use crate::manager_db::models::{DataItem, ForecastRecord, TwoDaysMinMax};
 
 pub struct DB {
     db_conn: Connection,
@@ -158,8 +158,48 @@ impl DB {
         
         Ok(serde_json::to_string_pretty(&result)?)
     }
-    
-    /// Returns a json string with two days min/max temperature values
+
+    /// Returns a json string with whatever forecasts are recorded between given boundaries
+    ///
+    /// # Arguments
+    ///
+    /// * 'source' - source responsible for forecast values
+    /// * 'from' - local datetime in the rfc3339 format
+    /// * 'to' - local datetime in the rfc3339 format
+    pub fn get_forecast(&self, source: &str, from: &str, to: &str) -> Result<String, DBError> {
+        let from_timestamp = DateTime::parse_from_rfc3339(from)?.with_timezone(&Utc).timestamp();
+        let to_timestamp = DateTime::parse_from_rfc3339(to)?.with_timezone(&Utc).timestamp();
+
+        let mut result: Vec<ForecastRecord> = Vec::new();
+
+        // Get what may naturally be between the given time boundary from the database
+        let mut stmt = self.db_conn.prepare(
+            "SELECT datetime, temperature, wind_speed, humidity, lcc_mean, mcc_mean, hcc_mean
+                FROM weather
+                WHERE source = ?1 AND datetime BETWEEN ?2 AND ?3
+                ORDER BY datetime;",
+        )?;
+        let mut rows = stmt.query(params![source, from_timestamp, to_timestamp])?;
+
+        while let Some(row) = rows.next()? {
+            let timestamp: i64 = row.get(0)?;
+            let fc = ForecastRecord {
+                date_time: DateTime::from_timestamp(timestamp, 0).unwrap().with_timezone(&Local),
+                temperature: row.get(1)?,
+                wind_speed: row.get(2)?,
+                humidity: row.get(3)?,
+                lcc_mean: row.get(4)?,
+                mcc_mean: row.get(5)?,
+                hcc_mean: row.get(6)?,
+            };
+
+            result.push(fc);
+        }
+
+        Ok(serde_json::to_string_pretty(&result)?)
+    }
+
+    /// Returns a json string with two-day min/max temperature values
     ///
     /// # Arguments
     ///

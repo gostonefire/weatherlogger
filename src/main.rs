@@ -11,7 +11,7 @@ use std::sync::Arc;
 use actix_web::{web, App, HttpServer};
 use tokio::sync::Mutex;
 use crate::errors::UnrecoverableError;
-use crate::handlers::{log_data, min_max, temperature};
+use crate::handlers::{forecast, log_data, min_max, temperature};
 use crate::initialization::config;
 use crate::manager_db::DB;
 use crate::manager_forecast::run_forecasts;
@@ -53,6 +53,7 @@ async fn main() -> Result<(), UnrecoverableError> {
             .service(log_data)
             .service(temperature)
             .service(min_max)
+            .service(forecast)
     })
         .bind((config.web_server.bind_address, config.web_server.bind_port))?
         .run()
