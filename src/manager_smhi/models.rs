@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Utc};
 
 #[derive(Deserialize)]
 pub struct Data {
@@ -27,7 +27,7 @@ pub struct FullForecast {
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct ForecastValues {
-    pub valid_time: DateTime<Local>,
+    pub valid_time: DateTime<Utc>,
     pub temp: f64,
     pub wind_speed: f64,
     pub relative_humidity: u8,

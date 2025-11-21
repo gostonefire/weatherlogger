@@ -3,7 +3,7 @@ mod models;
 
 use std::ops::Add;
 use std::time::Duration;
-use chrono::{DateTime, DurationRound, Local, TimeDelta};
+use chrono::{DateTime, DurationRound, Utc, TimeDelta};
 use reqwest::Client;
 use crate::manager_smhi::errors::SMHIError;
 use crate::manager_smhi::models::{ForecastValues, FullForecast};
@@ -46,7 +46,7 @@ impl SMHI {
     /// # Arguments
     ///
     /// * 'date_time' - the date to get a forecast for
-    pub async fn new_forecast(&self, date_time: DateTime<Local>) -> Result<Vec<ForecastValues>, SMHIError> {
+    pub async fn new_forecast(&self, date_time: DateTime<Utc>) -> Result<Vec<ForecastValues>, SMHIError> {
         let smhi_domain = "https://opendata-download-metfcst.smhi.se";
         let base_url = "/api/category/snow1g/version/1/geotype/point";
         let url = format!("{}{}/lon/{:0.4}/lat/{:0.4}/data.json",
@@ -70,11 +70,10 @@ impl SMHI {
         let mut forecast: Vec<ForecastValues> = Vec::new();
 
         for ts in tmp_forecast.time_series {
-            let forecast_time = ts.time.with_timezone(&Local);
-            let forecast_date = forecast_time.duration_trunc(TimeDelta::days(1)).unwrap();
+            let forecast_date = ts.time.duration_trunc(TimeDelta::days(1)).unwrap();
             if forecast_date == date || forecast_date == next_date {
                 let time_values = ForecastValues {
-                    valid_time: forecast_time,
+                    valid_time: ts.time,
                     temp: ts.data.air_temperature,
                     wind_speed: ts.data.wind_speed,
                     relative_humidity:ts.data.relative_humidity,

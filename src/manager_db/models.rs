@@ -1,9 +1,9 @@
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct DataItem<T> {
-    pub x: DateTime<Local>,
+    pub x: DateTime<Utc>,
     pub y: T,
 }
 
@@ -17,7 +17,7 @@ pub struct TwoDaysMinMax {
 
 #[derive(Serialize)]
 pub struct ForecastRecord {
-    pub date_time: DateTime<Local>,
+    pub date_time: DateTime<Utc>,
     pub temperature: Option<f64>,
     pub wind_speed: Option<f64>,
     pub humidity: Option<u8>,

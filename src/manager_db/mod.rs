@@ -2,7 +2,7 @@ pub mod errors;
 mod models;
 
 use std::ops::Add;
-use chrono::{DateTime, DurationRound, Local, TimeDelta, Utc};
+use chrono::{DateTime, DurationRound, TimeDelta, Utc};
 use log::error;
 use rusqlite::{params, Connection};
 use crate::manager_db::errors::DBError;
@@ -111,12 +111,12 @@ impl DB {
     /// # Arguments
     /// 
     /// * 'source' - sensor id (source)
-    /// * 'from' - local datetime in the rfc3339 format
-    /// * 'to' - local datetime in the rfc3339 format
+    /// * 'from' - utc datetime in the rfc3339 format
+    /// * 'to' - utc datetime in the rfc3339 format
     pub fn get_temp_history(&self, source: &str, from: &str, to: &str) -> Result<String, DBError> {
-        let from_datetime = DateTime::parse_from_rfc3339(from)?.with_timezone(&Local);
-        let from_timestamp = DateTime::parse_from_rfc3339(from)?.with_timezone(&Utc).timestamp();
-        let to_timestamp = DateTime::parse_from_rfc3339(to)?.with_timezone(&Utc).timestamp();
+        let from_datetime = DateTime::parse_from_rfc3339(from)?.with_timezone(&Utc);
+        let from_timestamp = DateTime::parse_from_rfc3339(from)?.timestamp();
+        let to_timestamp = DateTime::parse_from_rfc3339(to)?.timestamp();
         
         let mut result: Vec<DataItem<f64>> = Vec::new();
         
@@ -131,7 +131,7 @@ impl DB {
 
         while let Some(row) = rows.next()? {
             let timestamp: i64 = row.get(0)?;
-            let x = DateTime::from_timestamp(timestamp, 0).unwrap().with_timezone(&Local);
+            let x = DateTime::from_timestamp(timestamp, 0).unwrap();
             let y: f64 = row.get(1)?;
             result.push(DataItem { x, y });
         }
@@ -164,8 +164,8 @@ impl DB {
     /// # Arguments
     ///
     /// * 'source' - source responsible for forecast values
-    /// * 'from' - local datetime in the rfc3339 format
-    /// * 'to' - local datetime in the rfc3339 format
+    /// * 'from' - utc datetime in the rfc3339 format
+    /// * 'to' - utc datetime in the rfc3339 format
     pub fn get_forecast(&self, source: &str, from: &str, to: &str) -> Result<String, DBError> {
         let from_timestamp = DateTime::parse_from_rfc3339(from)?.with_timezone(&Utc).timestamp();
         let to_timestamp = DateTime::parse_from_rfc3339(to)?.with_timezone(&Utc).timestamp();
@@ -184,7 +184,7 @@ impl DB {
         while let Some(row) = rows.next()? {
             let timestamp: i64 = row.get(0)?;
             let fc = ForecastRecord {
-                date_time: DateTime::from_timestamp(timestamp, 0).unwrap().with_timezone(&Local),
+                date_time: DateTime::from_timestamp(timestamp, 0).unwrap(),
                 temperature: row.get(1)?,
                 wind_speed: row.get(2)?,
                 humidity: row.get(3)?,
@@ -204,9 +204,11 @@ impl DB {
     /// # Arguments
     ///
     /// * 'source' - sensor id (source)
-    pub fn get_two_day_min_max(&self, source: &str) -> Result<String, DBError> {
-        let today_start = Local::now().duration_trunc(TimeDelta::days(1)).unwrap();
-        let today_end = today_start.add(TimeDelta::seconds(86399));
+    /// * 'from' - utc datetime in the rfc3339 format
+    /// * 'to' - utc datetime in the rfc3339 format
+    pub fn get_two_day_min_max(&self, source: &str, from: &str, to: &str) -> Result<String, DBError> {
+        let today_start = DateTime::parse_from_rfc3339(from)?.with_timezone(&Utc);
+        let today_end = DateTime::parse_from_rfc3339(to)?.with_timezone(&Utc);
         let yesterday_start = today_start.add(TimeDelta::days(-1));
         let yesterday_end = today_end.add(TimeDelta::days(-1));
 
@@ -252,7 +254,7 @@ impl DB {
                 WHERE datetime < ?1;"
         ) {
             Ok(mut stmt) => { 
-                let trunc_time = Local::now().add(TimeDelta::days(-1 * self.max_age_in_days)).with_timezone(&Utc).timestamp();
+                let trunc_time = Utc::now().add(TimeDelta::days(-1 * self.max_age_in_days)).timestamp();
                 if let Err(e) = stmt.query(params![trunc_time]) {
                     error!("error while deleting rows: {}", e);
                 }

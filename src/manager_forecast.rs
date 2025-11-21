@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use chrono::{Local, Utc};
+use chrono::Utc;
 use log::error;
 use tokio::sync::Mutex;
 use crate::manager_db::DB;
@@ -22,11 +22,11 @@ pub async fn run_forecasts(db: Arc<Mutex<DB>>, lat: f64, long: f64, name: &str) 
     };
 
     loop {
-        if let Ok(forecast) = smhi.new_forecast(Local::now()).await {
+        if let Ok(forecast) = smhi.new_forecast(Utc::now()).await {
             for f in forecast {
                 if let Err(e) = db.lock().await.insert_forecast_record(
                     name,
-                    f.valid_time.with_timezone(&Utc),
+                    f.valid_time,
                     f.temp,
                     Some(f.wind_speed),
                     Some(f.relative_humidity),

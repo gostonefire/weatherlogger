@@ -20,6 +20,8 @@ struct TempParams {
 #[derive(Deserialize, Debug)]
 struct MinMaxParams {
     id: String,
+    from: String,
+    to: String,
 }
 
 #[get("/log")]
@@ -58,7 +60,7 @@ async fn min_max(params: web::Query<MinMaxParams>, data: web::Data<AppState>) ->
 
     let db = data.db.lock().await;
 
-    match db.get_two_day_min_max(&params.id) {
+    match db.get_two_day_min_max(&params.id, &params.from, &params.to) {
         Ok(json) => HttpResponse::Ok().body(json),
         Err(e) => {
             error!("failed to get min/max: {}", e);
