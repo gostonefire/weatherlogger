@@ -100,7 +100,7 @@ impl DB {
         Ok(())
     }
 
-    /// Returns a json string with whatever temperatures are recorded between given boundaries
+    /// Returns a json string with whatever temperatures are recorded between (non-inclusive) given boundaries
     /// 
     /// Since the sensor only records data when there is a change in either temperature (1 degree Celsius) or
     /// humidity (5%), there is a chance that no data would be returned even for a longer period of time.
@@ -112,7 +112,7 @@ impl DB {
     /// 
     /// * 'source' - sensor id (source)
     /// * 'from' - utc datetime in the rfc3339 format
-    /// * 'to' - utc datetime in the rfc3339 format
+    /// * 'to' - utc datetime in the rfc3339 format (non-inclusive)
     pub fn get_temp_history(&self, source: &str, from: &str, to: &str) -> Result<String, DBError> {
         let from_datetime = DateTime::parse_from_rfc3339(from)?.with_timezone(&Utc);
         let from_timestamp = DateTime::parse_from_rfc3339(from)?.timestamp();
@@ -124,7 +124,7 @@ impl DB {
         let mut stmt = self.db_conn.prepare(
             "SELECT datetime, temperature 
                 FROM weather
-                WHERE source = ?1 AND datetime BETWEEN ?2 AND ?3
+                WHERE source = ?1 AND datetime >= ?2 AND datetime < ?3
                 ORDER BY datetime;",
         )?;
         let mut rows = stmt.query(params![source, from_timestamp, to_timestamp])?;
@@ -159,13 +159,13 @@ impl DB {
         Ok(serde_json::to_string_pretty(&result)?)
     }
 
-    /// Returns a json string with whatever forecasts are recorded between given boundaries
+    /// Returns a json string with whatever forecasts are recorded between (non-inclusive) given boundaries
     ///
     /// # Arguments
     ///
     /// * 'source' - source responsible for forecast values
     /// * 'from' - utc datetime in the rfc3339 format
-    /// * 'to' - utc datetime in the rfc3339 format
+    /// * 'to' - utc datetime in the rfc3339 format (non-inclusive)
     pub fn get_forecast(&self, source: &str, from: &str, to: &str) -> Result<String, DBError> {
         let from_timestamp = DateTime::parse_from_rfc3339(from)?.with_timezone(&Utc).timestamp();
         let to_timestamp = DateTime::parse_from_rfc3339(to)?.with_timezone(&Utc).timestamp();
@@ -176,7 +176,7 @@ impl DB {
         let mut stmt = self.db_conn.prepare(
             "SELECT datetime, temperature, wind_speed, humidity, lcc_mean, mcc_mean, hcc_mean
                 FROM weather
-                WHERE source = ?1 AND datetime BETWEEN ?2 AND ?3
+                WHERE source = ?1 AND datetime >= ?2 AND datetime < ?3
                 ORDER BY datetime;",
         )?;
         let mut rows = stmt.query(params![source, from_timestamp, to_timestamp])?;
@@ -205,7 +205,7 @@ impl DB {
     ///
     /// * 'source' - sensor id (source)
     /// * 'from' - utc datetime in the rfc3339 format
-    /// * 'to' - utc datetime in the rfc3339 format
+    /// * 'to' - utc datetime in the rfc3339 format (non-inclusive)
     pub fn get_two_day_min_max(&self, source: &str, from: &str, to: &str) -> Result<String, DBError> {
         let today_start = DateTime::parse_from_rfc3339(from)?.with_timezone(&Utc);
         let today_end = DateTime::parse_from_rfc3339(to)?.with_timezone(&Utc);
@@ -216,7 +216,7 @@ impl DB {
         let mut stmt = self.db_conn.prepare(
             "SELECT MIN(temperature), MAX(temperature) 
                 FROM weather
-                WHERE source = ?1 AND datetime BETWEEN ?2 AND ?3;",
+                WHERE source = ?1 AND datetime >= ?2 AND datetime < ?3;",
         )?;
         
 
