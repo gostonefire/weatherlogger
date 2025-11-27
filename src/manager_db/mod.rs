@@ -2,7 +2,7 @@ pub mod errors;
 mod models;
 
 use std::ops::Add;
-use chrono::{DateTime, DurationRound, TimeDelta, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use log::error;
 use rusqlite::{params, Connection};
 use crate::manager_db::errors::DBError;
