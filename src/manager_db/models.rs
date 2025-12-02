@@ -8,11 +8,9 @@ pub struct DataItem<T> {
 }
 
 #[derive(Serialize)]
-pub struct TwoDaysMinMax {
-    pub yesterday_min: f64,
-    pub yesterday_max: f64,
-    pub today_min: f64,
-    pub today_max: f64,
+pub struct MinMax {
+    pub min: f64,
+    pub max: f64,
 }
 
 #[derive(Serialize)]
