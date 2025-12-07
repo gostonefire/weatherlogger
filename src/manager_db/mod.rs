@@ -218,20 +218,38 @@ impl DB {
         )?;
         
 
-        let mut result = MinMax {
-            min: 0.0,
-            max: 0.0,
-        };
+        let mut result: Option<MinMax> = None;
 
-        {
-            let rows = &mut stmt.query(params![source, start.timestamp(), end.timestamp()])?;
-            if let Some(row) = rows.next()? {
-                result.min = row.get(0).unwrap_or(0.0);
-                result.max = row.get(1).unwrap_or(0.0);
+        let rows = &mut stmt.query(params![source, start.timestamp(), end.timestamp()])?;
+        if let Some(row) = rows.next()? {
+            result = Some(MinMax {
+                min: row.get(0).unwrap_or(0.0),
+                max: row.get(1).unwrap_or(0.0),
+            });
+        }
+
+        // Make sure that we have at least one data point in case there hasn't yet been any data recorded
+        if result.is_none() {
+            let mut stmt = self.db_conn.prepare(
+                "SELECT temperature
+                FROM weather
+                WHERE source = ?1
+                ORDER BY datetime DESC LIMIT 1;",
+            )?;
+            let response: rusqlite::Result<f64> = stmt.query_one(params![source], |row| row.get(0));
+            match response {
+                Ok(y) => {
+                    result = Some(MinMax { min: y, max: y });
+                },
+                Err(e) => {
+                    if e != rusqlite::Error::QueryReturnedNoRows {
+                        return Err(DBError::from(e));
+                    }
+                }
             }
         }
 
-        Ok(serde_json::to_string_pretty(&result)?)
+        Ok(serde_json::to_string_pretty(&result.unwrap())?)
     }
     
     /// Truncate weather table according max age
