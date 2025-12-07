@@ -6,6 +6,7 @@ mod handlers;
 mod manager_temperature;
 mod manager_smhi;
 mod manager_forecast;
+mod perceived_temperature;
 
 use std::sync::Arc;
 use actix_web::{web, App, HttpServer};
