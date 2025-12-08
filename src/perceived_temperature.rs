@@ -69,13 +69,13 @@ fn celsius_to_fahrenheit(temp: f64) -> f64 {
     temp * 1.8 + 32.0
 }
 
-/// Converts a temperature value from Fahrenheit to Celsius.
+/// Converts a temperature value from Fahrenheit to Celsius and rounds the result to the nearest tenth.
 ///
 /// # Arguments
 ///
 /// * 'temp' - temperature in Fahrenheit
 fn fahrenheit_to_celsius(temp: f64) -> f64 {
-    (temp - 32.0) / 1.8
+    ((temp - 32.0) / 1.8 * 10.0).round() / 10.0
 }
 
 /// Converts from meter per second to miles per hour.

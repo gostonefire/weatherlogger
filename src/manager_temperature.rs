@@ -1,10 +1,12 @@
 use std::sync::Arc;
-use log::{error, info};
+use chrono::Utc;
+use log::{error, info, warn};
 use serde::Deserialize;
 use tokio::sync::Mutex;
 use tokio::task::JoinSet;
 use crate::errors::TempError;
 use crate::manager_db::DB;
+use crate::perceived_temperature::perceived_temperature;
 
 #[derive(Deserialize)]
 struct Data {
@@ -43,9 +45,25 @@ pub async fn run_observations(db: Arc<Mutex<DB>>, sensor: &Vec<String>, name: &s
 
         if let Some(t) = temperature {
             if t != last_inserted {
-                if let Err(e) = db.lock().await.insert_observation_record(name, t, None) {
-                    error!("error while inserting data in database: {}", e);
+                let wsh = db.lock().await.get_wind_and_humidity("smhi", Utc::now());
+                match wsh {
+                    Ok(wsh) => {
+                        let pt = if let Some((ws, h)) = wsh {
+                            Some(perceived_temperature(t, h as f64, ws))
+                        } else {
+                            warn!("wind and humidity data not available, perceived temperature will be unavailable");
+                            None
+                        };
+
+                        if let Err(e) = db.lock().await.insert_observation_record(name, t, None, pt) {
+                            error!("error while inserting data in database: {}", e);
+                        }
+                    },
+                    Err(e) => {
+                        error!("error while getting wind and humidity data: {}", e);
+                    }
                 }
+
                 last_inserted = t;
 
                 info!("inserted {} in database", t);

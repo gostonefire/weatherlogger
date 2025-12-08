@@ -29,6 +29,7 @@ impl DB {
                 source text not null,
                 datetime integer not null,
                 temperature real null,
+                perceived_temperature real null,
                 humidity integer null,
                 wind_speed real null,
                 lcc_mean integer null,
@@ -54,11 +55,12 @@ impl DB {
         source: &str,
         temp: f64,
         humidity: Option<u8>,
+        perceived_temp: Option<f64>,
     ) -> Result<(), DBError> {
         
         self.db_conn.execute(
-            "INSERT INTO weather (source, datetime, temperature, humidity) VALUES (?1, ?2, ?3, ?4)",
-            params![source, Utc::now().timestamp(), temp, humidity],
+            "INSERT INTO weather (source, datetime, temperature, humidity, perceived_temperature) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![source, Utc::now().timestamp(), temp, humidity, perceived_temp],
         )?;
         
         Ok(())
@@ -251,7 +253,42 @@ impl DB {
 
         Ok(serde_json::to_string_pretty(&result.unwrap())?)
     }
-    
+
+    /// Returns the last recorded wind speed and humidity for the given datetime
+    ///
+    /// # Arguments
+    ///
+    /// * 'source' - sensor id (source)
+    /// * 'date_time' - datetime to get data for
+    pub fn get_wind_and_humidity(&self, source: &str, date_time: DateTime<Utc>) -> Result<Option<(f64, u8)>, DBError> {
+        let start = date_time.timestamp() - 7200;
+        let end = date_time.timestamp();
+
+        let mut stmt = self.db_conn.prepare(
+            "SELECT wind_speed, humidity
+            FROM weather
+            WHERE source = ?1 AND datetime <= ?2 AND datetime > ?3
+            ORDER BY datetime desc LIMIT 1;",
+        )?;
+
+        let response: rusqlite::Result<(f64,u8)>  = stmt.query_one(params![source, end, start], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        });
+
+        match response {
+            Ok(r) => {
+                Ok(Some(r))
+            },
+            Err(e) => {
+                if e != rusqlite::Error::QueryReturnedNoRows {
+                    Err(DBError::from(e))
+                } else {
+                    Ok(None)
+                }
+            }
+        }
+    }
+
     /// Truncate weather table according max age
     /// 
     pub fn truncate_table(&self) {

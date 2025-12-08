@@ -30,7 +30,7 @@ async fn log_data(params: web::Query<SensorData>, data: web::Data<AppState>) -> 
 
     let db = data.db.lock().await;
 
-    match db.insert_observation_record(&params.id, params.temp, Some(params.hum)) {
+    match db.insert_observation_record(&params.id, params.temp, Some(params.hum), None) {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(e) => {
             error!("Failed to insert record: {}", e);
