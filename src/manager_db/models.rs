@@ -23,3 +23,10 @@ pub struct ForecastRecord {
     pub mcc_mean: Option<u8>,
     pub hcc_mean: Option<u8>,
 }
+
+#[derive(Serialize)]
+pub struct Temperature {
+    pub history: Vec<DataItem<f64>>,
+    pub current_temp: Option<f64>,
+    pub perceived_temp: Option<f64>,
+}

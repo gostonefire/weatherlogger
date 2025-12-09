@@ -6,7 +6,7 @@ use chrono::{DateTime, TimeDelta, Utc};
 use log::error;
 use rusqlite::{params, Connection};
 use crate::manager_db::errors::DBError;
-use crate::manager_db::models::{DataItem, ForecastRecord, MinMax};
+use crate::manager_db::models::{DataItem, ForecastRecord, MinMax, Temperature};
 
 pub struct DB {
     db_conn: Connection,
@@ -120,11 +120,15 @@ impl DB {
         let from_timestamp = DateTime::parse_from_rfc3339(from)?.timestamp();
         let to_timestamp = DateTime::parse_from_rfc3339(to)?.timestamp();
         
-        let mut result: Vec<DataItem<f64>> = Vec::new();
+        let mut result = Temperature {
+            history: Vec::new(),
+            current_temp: None,
+            perceived_temp: None,
+        };
         
         // Get what may naturally be between the given time boundary from the database
         let mut stmt = self.db_conn.prepare(
-            "SELECT datetime, temperature 
+            "SELECT datetime, temperature, perceived_temperature 
                 FROM weather
                 WHERE source = ?1 AND datetime >= ?2 AND datetime < ?3
                 ORDER BY datetime;",
@@ -135,21 +139,29 @@ impl DB {
             let timestamp: i64 = row.get(0)?;
             let x = DateTime::from_timestamp(timestamp, 0).unwrap();
             let y: f64 = row.get(1)?;
-            result.push(DataItem { x, y });
+            result.current_temp = Some(y);
+            result.perceived_temp = row.get(2)?;
+            result.history.push(DataItem { x, y });
         }
         
         // Make sure that we have at least one data point
-        if result.is_empty() {
+        if result.history.is_empty() {
             let mut stmt = self.db_conn.prepare(
-                "SELECT temperature 
+                "SELECT temperature, perceived_temperature
                 FROM weather
                 WHERE source = ?1
                 ORDER BY datetime DESC LIMIT 1;",
             )?;
             let x =  from_datetime;
-            let response: rusqlite::Result<f64> = stmt.query_one(params![source], |row| row.get(0));
+            let response: rusqlite::Result<(f64,Option<f64>)> = stmt.query_one(params![source], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            });
             match response {
-                Ok(y) => result.push(DataItem { x, y }),
+                Ok(y) => {
+                    result.current_temp = Some(y.0);
+                    result.perceived_temp = y.1;
+                    result.history.push(DataItem { x, y: y.0 })
+                },
                 Err(e) => {
                     if e != rusqlite::Error::QueryReturnedNoRows {
                         return Err(DBError::from(e));
