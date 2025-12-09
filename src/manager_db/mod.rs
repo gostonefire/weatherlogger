@@ -7,6 +7,7 @@ use log::error;
 use rusqlite::{params, Connection};
 use crate::manager_db::errors::DBError;
 use crate::manager_db::models::{DataItem, ForecastRecord, MinMax, Temperature};
+use crate::perceived_temperature::perceived_temperature;
 
 pub struct DB {
     db_conn: Connection,
@@ -117,8 +118,9 @@ impl DB {
     /// * 'to' - utc datetime in the rfc3339 format (non-inclusive)
     pub fn get_temp_history(&self, source: &str, from: &str, to: &str) -> Result<String, DBError> {
         let from_datetime = DateTime::parse_from_rfc3339(from)?.with_timezone(&Utc);
-        let from_timestamp = DateTime::parse_from_rfc3339(from)?.timestamp();
-        let to_timestamp = DateTime::parse_from_rfc3339(to)?.timestamp();
+        let to_datetime = DateTime::parse_from_rfc3339(to)?.with_timezone(&Utc);
+        let from_timestamp = from_datetime.timestamp();
+        let to_timestamp = to_datetime.timestamp();
         
         let mut result = Temperature {
             history: Vec::new(),
@@ -128,7 +130,7 @@ impl DB {
         
         // Get what may naturally be between the given time boundary from the database
         let mut stmt = self.db_conn.prepare(
-            "SELECT datetime, temperature, perceived_temperature 
+            "SELECT datetime, temperature
                 FROM weather
                 WHERE source = ?1 AND datetime >= ?2 AND datetime < ?3
                 ORDER BY datetime;",
@@ -140,27 +142,25 @@ impl DB {
             let x = DateTime::from_timestamp(timestamp, 0).unwrap();
             let y: f64 = row.get(1)?;
             result.current_temp = Some(y);
-            result.perceived_temp = row.get(2)?;
             result.history.push(DataItem { x, y });
         }
         
         // Make sure that we have at least one data point
         if result.history.is_empty() {
             let mut stmt = self.db_conn.prepare(
-                "SELECT temperature, perceived_temperature
+                "SELECT temperature
                 FROM weather
                 WHERE source = ?1
                 ORDER BY datetime DESC LIMIT 1;",
             )?;
             let x =  from_datetime;
-            let response: rusqlite::Result<(f64,Option<f64>)> = stmt.query_one(params![source], |row| {
-                Ok((row.get(0)?, row.get(1)?))
+            let response: rusqlite::Result<f64> = stmt.query_one(params![source], |row| {
+                row.get(0)
             });
             match response {
                 Ok(y) => {
-                    result.current_temp = Some(y.0);
-                    result.perceived_temp = y.1;
-                    result.history.push(DataItem { x, y: y.0 })
+                    result.current_temp = Some(y);
+                    result.history.push(DataItem { x, y })
                 },
                 Err(e) => {
                     if e != rusqlite::Error::QueryReturnedNoRows {
@@ -169,7 +169,15 @@ impl DB {
                 }
             }
         }
-        
+
+        if let Some(temp) = result.current_temp {
+            if let Some((ws, h)) = self.get_wind_and_humidity(source, to_datetime)? {
+                result.perceived_temp = Some(perceived_temperature(temp, h as f64, ws))
+            } else {
+                result.perceived_temp = Some(temp);
+            }
+        }
+
         Ok(serde_json::to_string_pretty(&result)?)
     }
 
