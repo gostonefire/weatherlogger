@@ -6,13 +6,15 @@
 /// * 'humidity' - humidity in percentage
 /// * 'wind_speed' - wind speed in m/s
 pub fn perceived_temperature(temp: f64, humidity: f64, wind_speed: f64) -> f64 {
-    let temp = celsius_to_fahrenheit(temp);
+    let temp_fh = celsius_to_fahrenheit(temp);
     let mph = mps_to_mph(wind_speed);
 
-    if temp <= 50.0 && mph > 3.0 {
-        fahrenheit_to_celsius(wind_chill(temp, mph))
+    if temp_fh <= 50.0 && mph > 3.0 {
+        fahrenheit_to_celsius(wind_chill(temp_fh, mph))
+    } else if temp_fh > 50.0 {
+        fahrenheit_to_celsius(heat_index(temp_fh, humidity))
     } else {
-        fahrenheit_to_celsius(heat_index(temp, humidity))
+        temp
     }
 }
 
