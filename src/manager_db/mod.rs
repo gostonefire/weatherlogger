@@ -171,7 +171,7 @@ impl DB {
         }
 
         if let Some(temp) = result.current_temp {
-            if let Some((ws, h)) = self.get_wind_and_humidity(source, to_datetime)? {
+            if let Some((ws, h)) = self.get_wind_and_humidity("smhi", to_datetime)? {
                 result.perceived_temp = Some(perceived_temperature(temp, h as f64, ws))
             } else {
                 result.perceived_temp = Some(temp);
