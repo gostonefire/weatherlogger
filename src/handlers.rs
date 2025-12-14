@@ -1,85 +1,83 @@
-use actix_web::{get, web, HttpResponse, Responder};
+use axum::extract::{Query, State};
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use log::{error, info};
 use serde::Deserialize;
-use crate::AppState;
+use crate::SharedState;
 
 #[derive(Deserialize, Debug)]
-struct SensorData {
+pub struct SensorData {
     hum: u8,
     temp: f64,
     id: String,
 }
 
 #[derive(Deserialize, Debug)]
-struct TempParams {
+pub struct TempParams {
     id: String,
     from: String,
     to: String,
 }
 
 #[derive(Deserialize, Debug)]
-struct MinMaxParams {
+pub struct MinMaxParams {
     id: String,
     from: String,
     to: String,
 }
 
-#[get("/log")]
-async fn log_data(params: web::Query<SensorData>, data: web::Data<AppState>) -> impl Responder {
+pub async fn log_data(Query(params): Query<SensorData>, State(state): State<SharedState>) -> impl IntoResponse {
     info!("{:?}", params);
 
-    let db = data.db.lock().await;
+    let db = state.lock().await;
 
     match db.insert_observation_record(&params.id, params.temp, Some(params.hum), None) {
-        Ok(_) => HttpResponse::Ok().finish(),
+        Ok(_) => StatusCode::OK,
         Err(e) => {
             error!("Failed to insert record: {}", e);
-            HttpResponse::InternalServerError().finish()
+            StatusCode::INTERNAL_SERVER_ERROR
         },
     }
 }
 
-#[get("/temperature")]
-async fn temperature(params: web::Query<TempParams>, data: web::Data<AppState>) -> impl Responder {
+pub async fn temperature(Query(params): Query<TempParams>, State(state): State<SharedState>) -> impl IntoResponse {
     info!("temperature: {:?}", params);
 
-    let db = data.db.lock().await;
+    let db = state.lock().await;
 
     match db.get_temp_history(&params.id, &params.from, &params.to) {
-        Ok(json) => HttpResponse::Ok().body(json),
+        Ok(json) => json.into_response(),
         Err(e) => {
             error!("failed to get temp history: {}", e);
-            HttpResponse::InternalServerError().finish()
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
 }
 
-#[get("/minmax")]
-async fn min_max(params: web::Query<MinMaxParams>, data: web::Data<AppState>) -> impl Responder {
+pub async fn min_max(Query(params): Query<MinMaxParams>, State(state): State<SharedState>) -> impl IntoResponse {
     info!("minmax: {:?}", params);
 
-    let db = data.db.lock().await;
+    let db = state.lock().await;
 
     match db.get_min_max(&params.id, &params.from, &params.to) {
-        Ok(json) => HttpResponse::Ok().body(json),
+        Ok(json) => json.into_response(),
         Err(e) => {
             error!("failed to get min/max: {}", e);
-            HttpResponse::InternalServerError().finish()
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
 }
 
-#[get("/forecast")]
-async fn forecast(params: web::Query<TempParams>, data: web::Data<AppState>) -> impl Responder {
+pub async fn forecast(Query(params): Query<TempParams>, State(state): State<SharedState>) -> impl IntoResponse {
     info!("forecast: {:?}", params);
     
-    let db = data.db.lock().await;
+    let db = state.lock().await;
     
     match db.get_forecast(&params.id, &params.from, &params.to) {
-        Ok(json) => HttpResponse::Ok().body(json),
+        Ok(json) => json.into_response(),
         Err(e) => {
             error!("failed to get forecast: {}", e);
-            HttpResponse::InternalServerError().finish()
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
 }
