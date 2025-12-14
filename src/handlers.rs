@@ -1,5 +1,5 @@
 use axum::extract::{Query, State};
-use axum::http::StatusCode;
+use axum::http::{header, StatusCode};
 use axum::response::IntoResponse;
 use log::{error, info};
 use serde::Deserialize;
@@ -46,7 +46,7 @@ pub async fn temperature(Query(params): Query<TempParams>, State(state): State<S
     let db = state.lock().await;
 
     match db.get_temp_history(&params.id, &params.from, &params.to) {
-        Ok(json) => json.into_response(),
+        Ok(json) => ([(header::CONTENT_TYPE, "application/json")], json).into_response(),
         Err(e) => {
             error!("failed to get temp history: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -60,7 +60,7 @@ pub async fn min_max(Query(params): Query<MinMaxParams>, State(state): State<Sha
     let db = state.lock().await;
 
     match db.get_min_max(&params.id, &params.from, &params.to) {
-        Ok(json) => json.into_response(),
+        Ok(json) => ([(header::CONTENT_TYPE, "application/json")], json).into_response(),
         Err(e) => {
             error!("failed to get min/max: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -74,7 +74,7 @@ pub async fn forecast(Query(params): Query<TempParams>, State(state): State<Shar
     let db = state.lock().await;
     
     match db.get_forecast(&params.id, &params.from, &params.to) {
-        Ok(json) => json.into_response(),
+        Ok(json) => ([(header::CONTENT_TYPE, "application/json")], json).into_response(),
         Err(e) => {
             error!("failed to get forecast: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
