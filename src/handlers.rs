@@ -5,12 +5,6 @@ use log::{error, info};
 use serde::Deserialize;
 use crate::SharedState;
 
-#[derive(Deserialize, Debug)]
-pub struct SensorData {
-    hum: u8,
-    temp: f64,
-    id: String,
-}
 
 #[derive(Deserialize, Debug)]
 pub struct TempParams {
@@ -24,20 +18,6 @@ pub struct MinMaxParams {
     id: String,
     from: String,
     to: String,
-}
-
-pub async fn log_data(Query(params): Query<SensorData>, State(state): State<SharedState>) -> impl IntoResponse {
-    info!("{:?}", params);
-
-    let db = state.lock().await;
-
-    match db.insert_observation_record(&params.id, params.temp, Some(params.hum), None) {
-        Ok(_) => StatusCode::OK,
-        Err(e) => {
-            error!("Failed to insert record: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        },
-    }
 }
 
 pub async fn temperature(Query(params): Query<TempParams>, State(state): State<SharedState>) -> impl IntoResponse {

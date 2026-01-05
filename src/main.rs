@@ -16,7 +16,7 @@ use axum::routing::get;
 use log::error;
 use tokio::sync::Mutex;
 use crate::errors::UnrecoverableError;
-use crate::handlers::{forecast, log_data, min_max, temperature};
+use crate::handlers::{forecast, min_max, temperature};
 use crate::initialization::config;
 use crate::manager_db::DB;
 use crate::manager_forecast::run_forecasts;
@@ -50,7 +50,6 @@ async fn main() -> Result<(), UnrecoverableError> {
     });
 
     let app = Router::new()
-        .route("/log", get(log_data))
         .route("/temperature", get(temperature))
         .route("/minmax", get(min_max))
         .route("/forecast", get(forecast))
