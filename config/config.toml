@@ -1,0 +1,21 @@
+[web_server]
+bind_address      = "192.168.1.136"
+bind_port         = 8081
+
+[temperature]
+sensor            = ["http://zeroeast.gridfire.org:8080/read", "http://zerowest.gridfire.org:8080/read"]
+name              = "east_west"
+
+[weather_forecast]
+name              = "smhi"
+lat               = 56.223306
+long              = 15.658389
+
+[db]
+db_path           = "/home/petste/MyWeatherLogger/db/weatherlogger_v2.db"
+max_age_in_days   = 366
+
+[general]
+log_path          = "/home/petste/MyWeatherLogger/logs/app.log"
+log_level         = "Info"
+log_to_stdout     = false
