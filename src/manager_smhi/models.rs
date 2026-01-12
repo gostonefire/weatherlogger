@@ -9,6 +9,7 @@ pub struct Data {
     pub low_type_cloud_area_fraction: u8,
     pub medium_type_cloud_area_fraction: u8,
     pub high_type_cloud_area_fraction: u8,
+    pub symbol_code: f64,
 }
 
 
@@ -34,5 +35,5 @@ pub struct ForecastValues {
     pub lcc_mean: u8,
     pub mcc_mean: u8,
     pub hcc_mean: u8,
-
+    pub symbol_code: u8,
 }

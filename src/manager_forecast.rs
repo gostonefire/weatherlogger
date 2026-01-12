@@ -33,6 +33,7 @@ pub async fn run_forecasts(db: Arc<Mutex<DB>>, lat: f64, long: f64, name: &str) 
                     Some(f.lcc_mean),
                     Some(f.mcc_mean),
                     Some(f.hcc_mean),
+                    Some(f.symbol_code),
                 ) {
                     error!("failed to insert forecast record: {}", e);
                 }

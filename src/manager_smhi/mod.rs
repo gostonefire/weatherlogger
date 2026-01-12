@@ -80,6 +80,7 @@ impl SMHI {
                     lcc_mean: ts.data.low_type_cloud_area_fraction,
                     mcc_mean: ts.data.medium_type_cloud_area_fraction,
                     hcc_mean: ts.data.high_type_cloud_area_fraction,
+                    symbol_code: ts.data.symbol_code.round() as u8,
                 };
 
                 forecast.push(time_values);

@@ -36,6 +36,7 @@ impl DB {
                 lcc_mean integer null,
                 mcc_mean integer null,
                 hcc_mean integer null,
+                symbol_code integer null,
                 constraint primary_key primary key (source, datetime)
            )",
            [],
@@ -81,6 +82,7 @@ impl DB {
     /// * 'lcc_mean' - low level cloud index
     /// * 'mcc_mean' - medium level cloud index
     /// * 'hcc_mean' - high level cloud index
+    /// * 'symbol_code' - weather symbol code
     pub fn insert_forecast_record(
         &self,
         source: &str,
@@ -91,13 +93,14 @@ impl DB {
         lcc_mean: Option<u8>,
         mcc_mean: Option<u8>,
         hcc_mean: Option<u8>,
+        symbol_code: Option<u8>,
     ) -> Result<(), DBError> {
 
         self.db_conn.execute(
-            "INSERT INTO weather (source, datetime, temperature, humidity, wind_speed, lcc_mean, mcc_mean, hcc_mean)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-                    ON CONFLICT (source, datetime) DO UPDATE SET temperature = ?3, humidity = ?4, wind_speed = ?5, lcc_mean = ?6, mcc_mean = ?7, hcc_mean = ?8",
-            params![source, date_time.timestamp(), temp, humidity, wind_speed, lcc_mean, mcc_mean, hcc_mean],
+            "INSERT INTO weather (source, datetime, temperature, humidity, wind_speed, lcc_mean, mcc_mean, hcc_mean, symbol_code)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+                    ON CONFLICT (source, datetime) DO UPDATE SET temperature = ?3, humidity = ?4, wind_speed = ?5, lcc_mean = ?6, mcc_mean = ?7, hcc_mean = ?8, symbol_code = ?9",
+            params![source, date_time.timestamp(), temp, humidity, wind_speed, lcc_mean, mcc_mean, hcc_mean, symbol_code],
         )?;
 
         Ok(())
@@ -196,7 +199,7 @@ impl DB {
 
         // Get what may naturally be between the given time boundary from the database
         let mut stmt = self.db_conn.prepare(
-            "SELECT datetime, temperature, wind_speed, humidity, lcc_mean, mcc_mean, hcc_mean
+            "SELECT datetime, temperature, wind_speed, humidity, lcc_mean, mcc_mean, hcc_mean, symbol_code
                 FROM weather
                 WHERE source = ?1 AND datetime >= ?2 AND datetime < ?3
                 ORDER BY datetime;",
@@ -213,6 +216,7 @@ impl DB {
                 lcc_mean: row.get(4)?,
                 mcc_mean: row.get(5)?,
                 hcc_mean: row.get(6)?,
+                symbol_code: row.get(7)?,
             };
 
             result.push(fc);

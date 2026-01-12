@@ -22,6 +22,7 @@ pub struct ForecastRecord {
     pub lcc_mean: Option<u8>,
     pub mcc_mean: Option<u8>,
     pub hcc_mean: Option<u8>,
+    pub symbol_code: Option<u8>,
 }
 
 #[derive(Serialize)]
