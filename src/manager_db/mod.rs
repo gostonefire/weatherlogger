@@ -243,16 +243,13 @@ impl DB {
                 WHERE source = ?1 AND datetime >= ?2 AND datetime < ?3;",
         )?;
         
-
-        let mut result: Option<MinMax> = None;
-
         let rows = &mut stmt.query(params![source, start.timestamp(), end.timestamp()])?;
-        if let Some(row) = rows.next()? {
-            result = Some(MinMax {
-                min: row.get(0).unwrap_or(0.0),
-                max: row.get(1).unwrap_or(0.0),
-            });
-        }
+
+        let mut result: Option<MinMax> = rows.next()?.and_then(|row| {
+            let min: f64 = row.get(0).ok()?;
+            let max: f64 = row.get(1).ok()?;
+            Some(MinMax { min, max })
+        });
 
         // Make sure that we have at least one data point in case there hasn't yet been any data recorded
         if result.is_none() {
