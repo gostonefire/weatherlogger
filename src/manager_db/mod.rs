@@ -238,7 +238,7 @@ impl DB {
         let mut stmt = self.db_conn.prepare(
             "SELECT MIN(temperature), MAX(temperature) 
                 FROM weather
-                WHERE source = ?1 AND datetime >= ?2 AND datetime < ?3;",
+                WHERE source = ?1 AND datetime > ?2 AND datetime < ?3;",
         )?;
         
         let rows = &mut stmt.query(params![source, start.timestamp(), end.timestamp()])?;
@@ -249,23 +249,22 @@ impl DB {
             Some(MinMax { min, max })
         });
 
-        // Make sure that we have at least one data point in case there hasn't yet been any data recorded
-        if result.is_none() {
-            let mut stmt = self.db_conn.prepare(
-                "SELECT temperature
-                FROM weather
-                WHERE source = ?1
-                ORDER BY datetime DESC LIMIT 1;",
-            )?;
-            let response: rusqlite::Result<f64> = stmt.query_one(params![source], |row| row.get(0));
-            match response {
-                Ok(y) => {
-                    result = Some(MinMax { min: y, max: y });
-                },
-                Err(e) => {
-                    if e != rusqlite::Error::QueryReturnedNoRows {
-                        return Err(DBError::from(e));
-                    }
+        // Make sure to consider also the temperature at the 'from' datetime
+        let mut stmt = self.db_conn.prepare(
+            "SELECT temperature
+            FROM weather
+            WHERE source = ?1 AND datetime <= ?2
+            ORDER BY datetime DESC LIMIT 1;",
+        )?;
+        let response: rusqlite::Result<f64> = stmt.query_one(params![source, start.timestamp()], |row| row.get(0));
+        match response {
+            Ok(y) => {
+                let min_max = result.map(|r| (r.min.min(y), r.max.max(y))).unwrap_or((y, y));
+                result = Some(MinMax { min: min_max.0, max: min_max.1 });
+            },
+            Err(e) => {
+                if e != rusqlite::Error::QueryReturnedNoRows {
+                    return Err(DBError::from(e));
                 }
             }
         }
