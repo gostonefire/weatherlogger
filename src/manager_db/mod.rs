@@ -135,7 +135,7 @@ impl DB {
         let mut stmt = self.db_conn.prepare(
             "SELECT datetime, temperature
                 FROM weather
-                WHERE source = ?1 AND datetime >= ?2 AND datetime < ?3
+                WHERE source = ?1 AND datetime > ?2 AND datetime < ?3
                 ORDER BY datetime;",
         )?;
         let mut rows = stmt.query(params![source, from_timestamp, to_timestamp])?;
@@ -148,27 +148,25 @@ impl DB {
             result.history.push(DataItem { x, y });
         }
         
-        // Make sure that we have at least one data point
-        if result.history.is_empty() {
-            let mut stmt = self.db_conn.prepare(
-                "SELECT temperature
-                FROM weather
-                WHERE source = ?1
-                ORDER BY datetime DESC LIMIT 1;",
-            )?;
-            let x =  from_datetime;
-            let response: rusqlite::Result<f64> = stmt.query_one(params![source], |row| {
-                row.get(0)
-            });
-            match response {
-                Ok(y) => {
-                    result.current_temp = Some(y);
-                    result.history.push(DataItem { x, y })
-                },
-                Err(e) => {
-                    if e != rusqlite::Error::QueryReturnedNoRows {
-                        return Err(DBError::from(e));
-                    }
+        // Make sure that we have a temperature on the 'from' datetime
+        let mut stmt = self.db_conn.prepare(
+            "SELECT temperature
+            FROM weather
+            WHERE source = ?1 AND datetime <= ?2
+            ORDER BY datetime DESC LIMIT 1;",
+        )?;
+        let x =  from_datetime;
+        let response: rusqlite::Result<f64> = stmt.query_one(params![source, from_timestamp], |row| {
+            row.get(0)
+        });
+        match response {
+            Ok(y) => {
+                result.current_temp = result.current_temp.or(Some(y));
+                result.history.insert(0,DataItem { x, y })
+            },
+            Err(e) => {
+                if e != rusqlite::Error::QueryReturnedNoRows {
+                    return Err(DBError::from(e));
                 }
             }
         }
