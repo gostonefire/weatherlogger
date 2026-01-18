@@ -124,20 +124,28 @@ impl DB {
         let to_datetime = DateTime::parse_from_rfc3339(to)?.with_timezone(&Utc);
         let from_timestamp = from_datetime.timestamp();
         let to_timestamp = to_datetime.timestamp();
-        
+
         let mut result = Temperature {
             history: Vec::new(),
             current_temp: None,
             perceived_temp: None,
         };
-        
-        // Get what may naturally be between the given time boundary from the database
+
+        // Combine the range query and the "last known value" query.
+        // For the last known value, we force the datetime to be the 'from' timestamp (?2)
         let mut stmt = self.db_conn.prepare(
-            "SELECT datetime, temperature
-                FROM weather
+            "SELECT datetime, temperature FROM (
+                SELECT datetime, temperature FROM weather
                 WHERE source = ?1 AND datetime > ?2 AND datetime < ?3
-                ORDER BY datetime;",
+                UNION ALL
+                SELECT ?2 as datetime, temperature FROM (
+                    SELECT temperature, datetime FROM weather
+                    WHERE source = ?1 AND datetime <= ?2
+                    ORDER BY datetime DESC LIMIT 1
+                )
+            ) ORDER BY datetime ASC;",
         )?;
+
         let mut rows = stmt.query(params![source, from_timestamp, to_timestamp])?;
 
         while let Some(row) = rows.next()? {
@@ -146,29 +154,6 @@ impl DB {
             let y: f64 = row.get(1)?;
             result.current_temp = Some(y);
             result.history.push(DataItem { x, y });
-        }
-        
-        // Make sure that we have a temperature on the 'from' datetime
-        let mut stmt = self.db_conn.prepare(
-            "SELECT temperature
-            FROM weather
-            WHERE source = ?1 AND datetime <= ?2
-            ORDER BY datetime DESC LIMIT 1;",
-        )?;
-        let x =  from_datetime;
-        let response: rusqlite::Result<f64> = stmt.query_one(params![source, from_timestamp], |row| {
-            row.get(0)
-        });
-        match response {
-            Ok(y) => {
-                result.current_temp = result.current_temp.or(Some(y));
-                result.history.insert(0,DataItem { x, y })
-            },
-            Err(e) => {
-                if e != rusqlite::Error::QueryReturnedNoRows {
-                    return Err(DBError::from(e));
-                }
-            }
         }
 
         if let Some(temp) = result.current_temp {
@@ -234,42 +219,32 @@ impl DB {
         let start = DateTime::parse_from_rfc3339(from)?.with_timezone(&Utc);
         let end = DateTime::parse_from_rfc3339(to)?.with_timezone(&Utc);
 
-        // Get min/max
+        // The extra subquery is needed for sqlite 'order by' having an explicit column when used in a 'union all'
         let mut stmt = self.db_conn.prepare(
-            "SELECT MIN(temperature), MAX(temperature) 
-                FROM weather
-                WHERE source = ?1 AND datetime > ?2 AND datetime < ?3;",
+            "SELECT MIN(temperature), MAX(temperature)
+             FROM (
+                SELECT temperature FROM weather
+                WHERE source = ?1 AND datetime > ?2 AND datetime < ?3
+                UNION ALL
+                SELECT temperature FROM (
+                    SELECT temperature, datetime FROM weather
+                    WHERE source = ?1 AND datetime <= ?2
+                    ORDER BY datetime DESC LIMIT 1
+                )
+             );",
         )?;
-        
-        let rows = &mut stmt.query(params![source, start.timestamp(), end.timestamp()])?;
 
-        let mut result: Option<MinMax> = rows.next()?.and_then(|row| {
-            let min: f64 = row.get(0).ok()?;
-            let max: f64 = row.get(1).ok()?;
-            Some(MinMax { min, max })
-        });
+        let result = stmt.query_row(params![source, start.timestamp(), end.timestamp()], |row| {
+            let min: Option<f64> = row.get(0)?;
+            let max: Option<f64> = row.get(1)?;
 
-        // Make sure to consider also the temperature at the 'from' datetime
-        let mut stmt = self.db_conn.prepare(
-            "SELECT temperature
-            FROM weather
-            WHERE source = ?1 AND datetime <= ?2
-            ORDER BY datetime DESC LIMIT 1;",
-        )?;
-        let response: rusqlite::Result<f64> = stmt.query_one(params![source, start.timestamp()], |row| row.get(0));
-        match response {
-            Ok(y) => {
-                let min_max = result.map(|r| (r.min.min(y), r.max.max(y))).unwrap_or((y, y));
-                result = Some(MinMax { min: min_max.0, max: min_max.1 });
-            },
-            Err(e) => {
-                if e != rusqlite::Error::QueryReturnedNoRows {
-                    return Err(DBError::from(e));
-                }
+            match (min, max) {
+                (Some(min), Some(max)) => Ok(Some(MinMax { min, max })),
+                _ => Ok(None),
             }
-        }
+        })?;
 
-        Ok(serde_json::to_string_pretty(&result.unwrap())?)
+        Ok(serde_json::to_string_pretty(&result.ok_or(rusqlite::Error::QueryReturnedNoRows)?)?)
     }
 
     /// Returns the last recorded wind speed and humidity for the given datetime
